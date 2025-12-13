@@ -6,13 +6,21 @@ const { generateToken } = require('../middleware/auth');
 // @access  Public
 exports.signup = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, phone, password } = req.body;
 
     // Validate input
-    if (!name || !email || !password) {
+    if (!name || !email || !phone || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide name, email and password'
+        message: 'Please provide name, email, phone and password'
+      });
+    }
+
+    // Validate phone number (basic validation)
+    if (phone.length < 10) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid phone number'
       });
     }
 
@@ -30,6 +38,7 @@ exports.signup = async (req, res) => {
     const user = await User.create({
       name,
       email,
+      phone,
       password
     });
 
@@ -42,6 +51,7 @@ exports.signup = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         avatar: user.avatar
       },
       token
@@ -99,6 +109,7 @@ exports.login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         avatar: user.avatar
       },
       token
@@ -125,6 +136,7 @@ exports.getMe = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
         avatar: user.avatar,
         favorites: user.favorites
       }
