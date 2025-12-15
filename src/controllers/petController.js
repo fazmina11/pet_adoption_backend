@@ -11,7 +11,7 @@ exports.getAllPets = async (req, res) => {
   try {
     const { category, search } = req.query;
     
-    let query = { status: 'available' };
+    let query = {};
 
     if (category) {
       query.category = category;
@@ -26,7 +26,7 @@ exports.getAllPets = async (req, res) => {
     }
 
     const pets = await Pet.find(query)
-      .populate('owner', 'name email')
+      .populate('owner', 'name email phone')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -48,7 +48,7 @@ exports.getAllPets = async (req, res) => {
 // @access  Public
 exports.getPetById = async (req, res) => {
   try {
-    const pet = await Pet.findById(req.params.id).populate('owner', 'name email');
+    const pet = await Pet.findById(req.params.id).populate('owner', 'name email phone');
 
     if (!pet) {
       return res.status(404).json({

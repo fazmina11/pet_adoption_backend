@@ -36,6 +36,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/pets', require('./routes/pets'));
 app.use('/api/favorites', require('./routes/favorites'));
 app.use('/api/adoptions', require('./routes/adoptions'));
+app.use('/api/notifications', require('./routes/notifications'));
 
 // Welcome route
 app.get('/', (req, res) => {
@@ -46,7 +47,8 @@ app.get('/', (req, res) => {
       auth: '/api/auth',
       pets: '/api/pets',
       favorites: '/api/favorites',
-      adoptions: '/api/adoptions'
+      adoptions: '/api/adoptions',
+      notifications: '/api/notifications'
     }
   });
 });

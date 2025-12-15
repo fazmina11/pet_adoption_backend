@@ -1,15 +1,55 @@
-const Adoption = require('../models/Adoption');
 const Pet = require('../models/Pet');
+const fs = require('fs');
 
-// @desc    Request adoption
-// @route   POST /api/adoptions
-// @access  Private
-exports.requestAdoption = async (req, res) => {
+// Import uploadToCloudinary correctly
+const { uploadToCloudinary } = require('../middleware/upload');
+
+// @desc    Get all pets
+// @route   GET /api/pets
+// @access  Public
+exports.getAllPets = async (req, res) => {
   try {
-    const { petId, message } = req.body;
+    const { category, search } = req.query;
+    
+    let query = {};
 
-    // Check if pet exists
-    const pet = await Pet.findById(petId);
+    if (category) {
+      query.category = category;
+    }
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { breed: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const pets = await Pet.find(query)
+      .populate('owner', 'name email phone')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: pets.length,
+      pets
+    });
+  } catch (error) {
+    console.error('Get pets error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Get single pet
+// @route   GET /api/pets/:id
+// @access  Public
+exports.getPetById = async (req, res) => {
+  try {
+    const pet = await Pet.findById(req.params.id).populate('owner', 'name email phone');
+
     if (!pet) {
       return res.status(404).json({
         success: false,
@@ -17,146 +57,169 @@ exports.requestAdoption = async (req, res) => {
       });
     }
 
-    // Check if pet is available
-    if (pet.status !== 'available') {
+    res.status(200).json({
+      success: true,
+      pet
+    });
+  } catch (error) {
+    console.error('Get pet error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+
+// @desc    Add new pet
+// @route   POST /api/pets
+// @access  Private
+exports.addPet = async (req, res) => {
+  try {
+    const { name, category, breed, age, weight, gender, description, location, price } = req.body;
+
+    // Check if image was uploaded
+    if (!req.file) {
       return res.status(400).json({
         success: false,
-        message: 'Pet is not available for adoption'
+        message: 'Please upload a pet image'
       });
     }
 
-    // Check if user already requested adoption for this pet
-    const existingRequest = await Adoption.findOne({
-      pet: petId,
-      adopter: req.user.id,
-      status: 'pending'
-    });
-
-    if (existingRequest) {
-      return res.status(400).json({
+    // Upload image to Cloudinary
+    let imageUrl;
+    try {
+      imageUrl = await uploadToCloudinary(req.file.path);
+    } catch (uploadError) {
+      console.error('Upload error:', uploadError);
+      if (fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(500).json({
         success: false,
-        message: 'You have already requested adoption for this pet'
+        message: 'Failed to upload image'
       });
     }
 
-    // Create adoption request
-    const adoption = await Adoption.create({
-      pet: petId,
-      adopter: req.user.id,
-      owner: pet.owner,
-      message: message || `I'm interested in adopting ${pet.name}`
-    });
+    // Delete local file
+    if (fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
 
-    // Update pet status to pending
-    pet.status = 'pending';
-    await pet.save();
+    // Create pet
+    const pet = await Pet.create({
+      name,
+      category,
+      breed,
+      age,
+      weight,
+      gender,
+      description,
+      location: location || 'Not specified',
+      price: price || 0,
+      image: imageUrl,
+      bgColor: Math.random() > 0.5 ? 'yellow' : 'purple',
+      owner: req.user.id
+    });
 
     res.status(201).json({
       success: true,
-      message: 'Adoption request submitted successfully! The owner will contact you soon.',
-      adoption
+      message: 'Pet added successfully!',
+      pet
     });
   } catch (error) {
-    console.error('Request adoption error:', error);
+    console.error('Add pet error:', error);
+    
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to request adoption'
+      message: error.message
     });
   }
 };
 
-// @desc    Get user's adoption requests
-// @route   GET /api/adoptions/my-requests
+// @desc    Update pet
+// @route   PUT /api/pets/:id
 // @access  Private
-exports.getMyRequests = async (req, res) => {
+exports.updatePet = async (req, res) => {
   try {
-    const adoptions = await Adoption.find({ adopter: req.user.id })
-      .populate('pet')
-      .populate('owner', 'name email phone')
-      .sort({ createdAt: -1 });
+    let pet = await Pet.findById(req.params.id);
 
-    res.status(200).json({
-      success: true,
-      count: adoptions.length,
-      adoptions
-    });
-  } catch (error) {
-    console.error('Get my requests error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to fetch requests'
-    });
-  }
-};
-
-// @desc    Get adoption requests for user's pets
-// @route   GET /api/adoptions/received
-// @access  Private
-exports.getReceivedRequests = async (req, res) => {
-  try {
-    const adoptions = await Adoption.find({ owner: req.user.id })
-      .populate('pet')
-      .populate('adopter', 'name email phone')
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      count: adoptions.length,
-      adoptions
-    });
-  } catch (error) {
-    console.error('Get received requests error:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Failed to fetch requests'
-    });
-  }
-};
-
-// @desc    Update adoption status
-// @route   PUT /api/adoptions/:id
-// @access  Private
-exports.updateAdoptionStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-
-    let adoption = await Adoption.findById(req.params.id);
-
-    if (!adoption) {
+    if (!pet) {
       return res.status(404).json({
         success: false,
-        message: 'Adoption request not found'
+        message: 'Pet not found'
       });
     }
 
-    // Check if user is the pet owner
-    if (adoption.owner.toString() !== req.user.id) {
+    if (pet.owner.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
-        message: 'Not authorized to update this request'
+        message: 'Not authorized'
       });
     }
 
-    adoption.status = status;
-    await adoption.save();
-
-    // Update pet status if approved
-    if (status === 'approved') {
-      await Pet.findByIdAndUpdate(adoption.pet, { status: 'adopted' });
-    } else if (status === 'rejected') {
-      await Pet.findByIdAndUpdate(adoption.pet, { status: 'available' });
+    if (req.file) {
+      const imageUrl = await uploadToCloudinary(req.file.path);
+      req.body.image = imageUrl;
+      fs.unlinkSync(req.file.path);
     }
+
+    pet = await Pet.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true
+    });
 
     res.status(200).json({
       success: true,
-      message: `Adoption request ${status}`,
-      adoption
+      message: 'Pet updated successfully',
+      pet
     });
   } catch (error) {
-    console.error('Update adoption status error:', error);
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to update status'
+      message: error.message
+    });
+  }
+};
+
+// @desc    Delete pet
+// @route   DELETE /api/pets/:id
+// @access  Private
+exports.deletePet = async (req, res) => {
+  try {
+    const pet = await Pet.findById(req.params.id);
+
+    if (!pet) {
+      return res.status(404).json({
+        success: false,
+        message: 'Pet not found'
+      });
+    }
+
+    if (pet.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized'
+      });
+    }
+
+    await pet.deleteOne();
+
+    res.status(200).json({
+      success: true,
+      message: 'Pet deleted successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 };

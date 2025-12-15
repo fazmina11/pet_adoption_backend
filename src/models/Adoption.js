@@ -16,13 +16,34 @@ const adoptionSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  message: {
+  reason: {
     type: String,
-    default: ''
+    required: [true, 'Please provide a reason for adoption'],
+    trim: true
+  },
+  experience: {
+    type: String,
+    required: [true, 'Please share your experience with pets'],
+    trim: true
+  },
+  contactName: {
+    type: String,
+    required: [true, 'Please provide your full name'],
+    trim: true
+  },
+  contactEmail: {
+    type: String,
+    required: [true, 'Please provide your email'],
+    trim: true
+  },
+  contactPhone: {
+    type: String,
+    required: [true, 'Please provide your phone number'],
+    trim: true
   },
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected'],
+    enum: ['pending', 'approved', 'rejected', 'completed'],
     default: 'pending'
   }
 }, {
