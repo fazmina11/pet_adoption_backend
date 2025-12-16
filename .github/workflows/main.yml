@@ -24,7 +24,8 @@ jobs:
             cd /home/ubuntu || exit 1
 
             if [ ! -d "pet_adoption_backend" ]; then
-              git clone https://github.com/fazmina11/pet_adoption_backend.git
+              git clone  https://github.com/fazmina11/pet_adoption_backend.git
+            fi
 
             cd pet_adoption_backend || exit 1
             git pull origin master
