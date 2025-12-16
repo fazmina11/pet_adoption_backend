@@ -23,7 +23,7 @@ jobs:
           script: |
             cd /home/ubuntu || exit 1
 
-            if [ ! -d "backend-sece-Aiml" ]; then
+            if [ ! -d "pet_adoption_backend" ]; then
               git clone https://github.com/fazmina11/pet_adoption_backend.git
 
             cd pet_adoption_backend || exit 1
