@@ -142,8 +142,20 @@ exports.getReceivedRequests = async (req, res) => {
 exports.updateAdoptionStatus = async (req, res) => {
   try {
     const { status } = req.body;
+    const adoptionId = req.params.id;
 
-    let adoption = await Adoption.findById(req.params.id).populate('pet');
+    console.log('Update adoption status:', { adoptionId, status });
+
+    // Validate status
+    if (!status || !['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status. Must be "approved" or "rejected"'
+      });
+    }
+
+    // Find adoption and populate pet
+    let adoption = await Adoption.findById(adoptionId).populate('pet');
 
     if (!adoption) {
       return res.status(404).json({
@@ -151,6 +163,13 @@ exports.updateAdoptionStatus = async (req, res) => {
         message: 'Adoption request not found'
       });
     }
+
+    console.log('Found adoption:', {
+      adoptionId: adoption._id,
+      owner: adoption.owner.toString(),
+      userId: req.user.id,
+      petName: adoption.pet?.name
+    });
 
     // Check if user is the pet owner
     if (adoption.owner.toString() !== req.user.id) {
@@ -160,10 +179,13 @@ exports.updateAdoptionStatus = async (req, res) => {
       });
     }
 
+    // Update adoption status
     adoption.status = status;
     await adoption.save();
 
-    // Update pet status
+    console.log('Updated adoption status to:', status);
+
+    // Update pet status and create notification
     if (status === 'approved') {
       await Pet.findByIdAndUpdate(adoption.pet._id, { status: 'pending' });
       
@@ -173,9 +195,11 @@ exports.updateAdoptionStatus = async (req, res) => {
         type: 'adoption_approved',
         pet: adoption.pet._id,
         adoption: adoption._id,
-        message: `Your adoption request for ${adoption.pet.name} has been approved! Click "Done" to complete the adoption.`,
+        message: `Your adoption request for ${adoption.pet.name} has been approved! Click "Mark as Done" to complete the adoption.`,
         actionRequired: true
       });
+
+      console.log('Created approval notification for adopter');
     } else if (status === 'rejected') {
       await Pet.findByIdAndUpdate(adoption.pet._id, { status: 'available' });
       
@@ -188,11 +212,13 @@ exports.updateAdoptionStatus = async (req, res) => {
         message: `Your adoption request for ${adoption.pet.name} has been rejected.`,
         actionRequired: false
       });
+
+      console.log('Created rejection notification for adopter');
     }
 
     res.status(200).json({
       success: true,
-      message: `Adoption request ${status}`,
+      message: `Adoption request ${status} successfully`,
       adoption
     });
   } catch (error) {
@@ -209,7 +235,11 @@ exports.updateAdoptionStatus = async (req, res) => {
 // @access  Private
 exports.completeAdoption = async (req, res) => {
   try {
-    let adoption = await Adoption.findById(req.params.id).populate('pet');
+    const adoptionId = req.params.id;
+
+    console.log('Complete adoption:', { adoptionId, userId: req.user.id });
+
+    let adoption = await Adoption.findById(adoptionId).populate('pet');
 
     if (!adoption) {
       return res.status(404).json({
@@ -250,6 +280,8 @@ exports.completeAdoption = async (req, res) => {
       message: `Adoption completed for ${adoption.pet.name}`,
       actionRequired: false
     });
+
+    console.log('Adoption completed successfully');
 
     res.status(200).json({
       success: true,
