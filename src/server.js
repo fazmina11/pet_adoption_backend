@@ -27,6 +27,8 @@ const allowedOrigins = [
   /https:\/\/.*\.vercel\.app$/ // Allow all Vercel preview URLs
 ];
 
+console.log('CORS configured for:', allowedOrigins);
+
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl)
