@@ -7,6 +7,13 @@ exports.getNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({ user: req.user.id })
       .populate('pet', 'name image')
+      .populate({
+        path: 'adoption',
+        populate: {
+          path: 'adopter',
+          select: 'name email phone'
+        }
+      })
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
@@ -16,19 +23,13 @@ exports.getNotifications = async (req, res) => {
       read: false
     });
 
-    // Clean up notifications - ensure adoption is a string ID
-    const cleanedNotifications = notifications.map(notif => ({
-      ...notif,
-      adoption: notif.adoption ? notif.adoption.toString() : null
-    }));
-
-    console.log('Fetched notifications:', cleanedNotifications.length);
+    console.log('Fetched notifications with adoption details:', notifications.length);
     
     res.status(200).json({
       success: true,
-      count: cleanedNotifications.length,
+      count: notifications.length,
       unreadCount,
-      notifications: cleanedNotifications
+      notifications
     });
   } catch (error) {
     console.error('Get notifications error:', error);

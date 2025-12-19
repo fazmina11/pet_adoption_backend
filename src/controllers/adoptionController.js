@@ -60,11 +60,14 @@ exports.requestAdoption = async (req, res) => {
       contactPhone
     });
 
+    // Populate the adoption with full adopter details
+    await adoption.populate('adopter', 'name email phone');
+
     // Update pet status to pending
     pet.status = 'pending';
     await pet.save();
 
-    // Create notification for pet owner
+    // Create notification for pet owner ONLY
     await Notification.create({
       user: pet.owner,
       type: 'adoption_request',
