@@ -10,9 +10,12 @@ const {
 } = require('../controllers/notificationController');
 
 // All routes require authentication
+// Specific routes FIRST to avoid conflicts with ID parameters
+router.put('/read-all', protect, markAllAsRead);
+
+// Dynamic routes LAST
 router.get('/', protect, getNotifications);
 router.put('/:id/read', protect, markAsRead);
-router.put('/read-all', protect, markAllAsRead);
 router.delete('/:id', protect, deleteNotification);
 
 module.exports = router;

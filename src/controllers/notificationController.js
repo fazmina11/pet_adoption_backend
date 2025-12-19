@@ -7,20 +7,28 @@ exports.getNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({ user: req.user.id })
       .populate('pet', 'name image')
-      .populate('adoption')
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
 
     const unreadCount = await Notification.countDocuments({
       user: req.user.id,
       read: false
     });
 
+    // Clean up notifications - ensure adoption is a string ID
+    const cleanedNotifications = notifications.map(notif => ({
+      ...notif,
+      adoption: notif.adoption ? notif.adoption.toString() : null
+    }));
+
+    console.log('Fetched notifications:', cleanedNotifications.length);
+    
     res.status(200).json({
       success: true,
-      count: notifications.length,
+      count: cleanedNotifications.length,
       unreadCount,
-      notifications
+      notifications: cleanedNotifications
     });
   } catch (error) {
     console.error('Get notifications error:', error);

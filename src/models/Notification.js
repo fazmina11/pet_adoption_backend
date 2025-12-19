@@ -18,7 +18,8 @@ const notificationSchema = new mongoose.Schema({
   },
   adoption: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Adoption'
+    ref: 'Adoption',
+    default: null
   },
   message: {
     type: String,

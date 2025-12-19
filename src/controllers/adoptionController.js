@@ -155,7 +155,9 @@ exports.updateAdoptionStatus = async (req, res) => {
     }
 
     // Find adoption and populate pet
-    let adoption = await Adoption.findById(adoptionId).populate('pet');
+    let adoption = await Adoption.findById(adoptionId)
+      .populate('pet')
+      .populate('adopter', 'name email phone');
 
     if (!adoption) {
       return res.status(404).json({
@@ -181,6 +183,13 @@ exports.updateAdoptionStatus = async (req, res) => {
 
     // Update adoption status
     adoption.status = status;
+    
+    if (status === 'approved') {
+      adoption.approvedAt = new Date();
+    } else if (status === 'rejected') {
+      adoption.rejectedAt = new Date();
+    }
+    
     await adoption.save();
 
     console.log('Updated adoption status to:', status);
@@ -191,7 +200,7 @@ exports.updateAdoptionStatus = async (req, res) => {
       
       // Create notification for adopter
       await Notification.create({
-        user: adoption.adopter,
+        user: adoption.adopter._id,
         type: 'adoption_approved',
         pet: adoption.pet._id,
         adoption: adoption._id,
@@ -205,7 +214,7 @@ exports.updateAdoptionStatus = async (req, res) => {
       
       // Create notification for adopter
       await Notification.create({
-        user: adoption.adopter,
+        user: adoption.adopter._id,
         type: 'adoption_rejected',
         pet: adoption.pet._id,
         adoption: adoption._id,
